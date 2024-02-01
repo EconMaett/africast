@@ -1,0 +1,15 @@
+---
+title: "Residual diagnostics and cross validation"
+subtitle: "<span class='code'>09:45-11:15</span>"
+date: "2023-10-27"
+order: 2
+---
+
+<!-- Materials will be distributed sooner to the event. -->
+
+```{=html}
+<embed src="../../materials/05_accuracy_advance.pdf" type="application/pdf" width="750px" height="420px">
+```
+
+[View slides in full screen](../../materials/05_accuracy_advance.pdf)
+

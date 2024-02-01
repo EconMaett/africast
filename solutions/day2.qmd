@@ -1,0 +1,178 @@
+---
+title: "Lab exercise: day 2"
+editor: visual
+---
+
+```{r}
+#| label: setup
+library(fpp3)
+```
+
+# Learn
+
+Select a country of your choice from `global_economy`, then calculate and visualise the the GDP per capita over time (that is, the GDP scaled by the population).
+
+```{r}
+global_economy |> 
+  filter(Country == "Australia") |> 
+  autoplot(GDP / Population)
+```
+
+Calculate the monthly total Australian retail turnover from `aus_retail` and visualise the seasonal pattern. Then scale by the number of days in each month to calculate the daily average turnover and compare the seasonal patterns.
+
+```{r}
+aus_retail_total <- aus_retail |> 
+  summarise(Turnover = sum(Turnover))
+
+aus_retail_total |> 
+  gg_subseries(Turnover)
+
+aus_retail_total |> 
+  gg_subseries(Turnover / days_in_month(Month))
+```
+
+> The drop in February is removed when taking into account the number of days in each month.
+
+Find a suitable box-cox transformation for the monthly total Australian retail turnover, then compare your choice with the automatically selected parameter from the `guerrero()` feature.
+
+```{r}
+aus_retail_total |> 
+  autoplot(log(Turnover))
+
+aus_retail_total |> 
+  autoplot(box_cox(Turnover, lambda = 0.1))
+
+aus_retail_total |> 
+  features(Turnover, features = guerrero)
+
+aus_retail_total |> 
+  autoplot(box_cox(Turnover, lambda = guerrero(Turnover)))
+```
+
+> The log transformation seems a bit strong since the seasonal variation is now bigger when the level of the series (Turnover) is lower. Using box_cox() with lambda=0.1 seems better, but the optimal guerrero finds lambda=0.196 which works very well.
+
+Find a suitable STL decomposition for the total Australian retail turnover, then produce and visualise the seasonally adjusted time series. Hint: don't forget to use the suitable transformation found previously!
+
+```{r}
+fit <- aus_retail_total |> 
+  model(STL(box_cox(Turnover, guerrero(Turnover)) ~ trend(window = 30) + season(window = Inf)))
+
+fit |> 
+  components() |> 
+  autoplot()
+
+fit |> 
+  components() |> 
+  autoplot(season_adjust)
+```
+
+Produce a seasonal plot of the seasonal component from your STL decomposition on Australian retail turnover.
+
+```{r}
+fit |> 
+  components() |> 
+  gg_season(season_year)
+```
+
+Calculate the STL features for the time series in the `tourism` dataset. Try colouring the points in the scatterplot by the purpose of travel, are some reasons more trended or seasonal than others?
+
+```{r}
+tourism_features <- tourism |> 
+  features(Trips, feat_stl) 
+  
+tourism_features |> 
+  ggplot(aes(x = trend_strength, y = seasonal_strength_year)) + 
+  geom_point()
+
+tourism_features |> 
+  ggplot(aes(x = trend_strength, y = seasonal_strength_year)) + 
+  geom_point(aes(colour = Purpose))
+```
+
+Holiday travel is usually more seasonal than other reasons of travel.
+
+# Apply
+
+```{r}
+library(tsibble)
+library(feasts)
+library(fabletools)
+library(tidyverse)
+
+vaccine_administrated_tsb <- read_rds("data/vaccine_administrated_tsb.rds")
+```
+
+## Decomposition
+
+```{r}
+stl_decom <- vaccine_administrated_tsb |>
+  filter(region == "H") |> 
+  model(
+    STL(dose_adminstrated ~ trend(window = 12) +
+                   season(window = "periodic")))
+stl_decom
+```
+
+Complete the code below to plot the components produced by STL:
+
+```{r}
+stl_decom |> 
+  components() |>
+  autoplot()
+```
+
+Describe the result of the decomposition from the above plot.
+
+```{r}
+stl_decom |> components() |> 
+  ggplot(aes(x = month)) +
+  geom_line(aes(y = dose_adminstrated, colour = "Data")) +
+  geom_line(aes(y = season_adjust,
+                colour = "Seasonally Adjusted")) +
+  geom_line(aes(y = trend, colour = "Trend")) +
+  labs(y = "Month",
+       title = "Vaccine dose adminstrated") +
+  scale_colour_manual(
+    values = c("gray", "#0072B2", "#D55E00"),
+    breaks = c("Data", "Seasonally Adjusted", "Trend")
+  )
+```
+
+## Computing features
+
+You can start by calculating some simple features including average (`mean`) and standard deviation (`sd`). You also need to know how to calculate the coefficient of variation. Complete the following code to do that:
+
+```{r}
+vaccine_administrated_tsb |>
+  features(dose_adminstrated, list(average = mean, standard_deviation = sd)) |> mutate( coefficient_of_variation = standard_deviation/average)
+```
+
+You can also use *feasts* package to include about 48 different features providing various numerical summaries of time series. Complete the following code to compute those features for the monthly vaccine dose adminstrated:
+
+```{r}
+vaccine_administrated_features <- vaccine_administrated_tsb |>
+  features(dose_adminstrated,feature_set(pkgs = "feasts"))
+vaccine_administrated_features
+```
+
+> The dataset of administered vaccine doses currently comprises only nine time series. Nevertheless, there are cases where datasets may includes hundreds or even thousands of time series. The method applied here can be replicated with datasets of varying sizes, including those with thousands of time series.
+
+## Visualizing features
+
+Create a scatterplot to show the strength of trend and seasonality features:
+
+```{r}
+ggplot(data = vaccine_administrated_features, 
+       mapping = aes(x = trend_strength, y = seasonal_strength_year)) +
+  geom_point()
+```
+
+Using a feature indicating the level of forecast difficulty or ease for a given time series, generate a histogram to visualize the distribution of forecastability within the dataset.
+
+```{r}
+ggplot(data = vaccine_administrated_features, 
+       mapping = aes(spectral_entropy)) +
+  geom_density(fill="lightblue")
+```
+
+> This distribution would make more sense when you deal with a dataset containing hundreds or thousands of time series.

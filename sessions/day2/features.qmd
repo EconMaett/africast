@@ -1,0 +1,14 @@
+---
+title: "Computing and visualizing features"
+subtitle: "<span class='code'>09:45-11:15</span>"
+date: "2023-10-24"
+order: 2
+---
+
+<!-- Materials will be distributed sooner to the event. -->
+
+```{=html}
+<embed src="../../materials/02_features.pdf" type="application/pdf" width="750px" height="420px">
+```
+
+[View slides in full screen](../../materials/02_features.pdf)
